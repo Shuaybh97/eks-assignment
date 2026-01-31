@@ -1,112 +1,72 @@
-terraform {
-  required_version = ">= 1.9.0, < 2.0.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
-
-resource "aws_vpc" "vpc" {
+resource "aws_vpc" "this" {
   cidr_block = var.vpc_cidr
   tags       = local.tags
 }
 
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.vpc.id
+resource "aws_internet_gateway" "this" {
+  vpc_id = aws_vpc.this.id
   tags   = local.tags
 }
 
-resource "aws_subnet" "public_subnet1" {
-  vpc_id                  = aws_vpc.vpc.id
-  cidr_block              = var.public_subnet1_cidr
-  availability_zone       = var.public_subnet1_az
-  map_public_ip_on_launch = var.map_public_ip_on_launch
+resource "aws_subnet" "public_subnet" {
+  for_each                = toset(local.azs)
+  vpc_id                  = aws_vpc.this.id
+  cidr_block              = cidrsubnet(var.vpc_cidr, 8, index(local.azs, each.key))
+  availability_zone       = each.value
+  map_public_ip_on_launch = true
   tags                    = local.tags
-
 }
 
-resource "aws_subnet" "public_subnet2" {
-  vpc_id                  = aws_vpc.vpc.id
-  cidr_block              = var.public_subnet2_cidr
-  availability_zone       = var.public_subnet2_az
-  map_public_ip_on_launch = var.map_public_ip_on_launch
-  tags                    = local.tags
-
-}
-
-resource "aws_subnet" "private_subnet1" {
-  vpc_id            = aws_vpc.vpc.id
-  cidr_block        = var.private_subnet1_cidr
-  availability_zone = var.private_subnet1_az
+resource "aws_subnet" "private_subnet" {
+  for_each          = toset(local.azs)
+  vpc_id            = aws_vpc.this.id
+  cidr_block        = cidrsubnet(var.vpc_cidr, 8, index(local.azs, each.key) + 10)
+  availability_zone = each.value
   tags              = local.tags
 
 }
-
-
-resource "aws_subnet" "private_subnet2" {
-  vpc_id            = aws_vpc.vpc.id
-  cidr_block        = var.private_subnet2_cidr
-  availability_zone = var.private_subnet2_az
-  tags              = local.tags
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.this.id
+  tags   = local.tags
 }
 
-resource "aws_route_table" "public_route_table" {
-  vpc_id = aws_vpc.vpc.id
-
-  route {
-    cidr_block = var.igw_cidr
-    gateway_id = aws_internet_gateway.igw.id
-  }
-  tags = local.tags
+resource "aws_route" "public_internet_access" {
+  route_table_id         = aws_route_table.public.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.this.id
 }
 
-resource "aws_route_table_association" "rta_pub1" {
-  route_table_id = aws_route_table.public_route_table.id
-  subnet_id      = aws_subnet.public_subnet1.id
-}
-
-resource "aws_route_table_association" "rta_pub2" {
-  route_table_id = aws_route_table.public_route_table.id
-  subnet_id      = aws_subnet.public_subnet2.id
-
+resource "aws_route_table_association" "public_assoc" {
+  count          = length(aws_subnet.public_subnet)
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
 }
 
 resource "aws_eip" "elastic_ip" {
-  domain     = var.eip_domain
   depends_on = [aws_internet_gateway.igw]
   tags       = local.tags
 }
 
 resource "aws_nat_gateway" "ngw" {
   allocation_id = aws_eip.elastic_ip.id
-  subnet_id     = aws_subnet.public_subnet1.id
+  subnet_id     = aws_subnet.public_subnet[0].id
   depends_on    = [aws_eip.elastic_ip]
   tags          = local.tags
-
 }
 
-resource "aws_route_table" "private_route_table" {
-  vpc_id = aws_vpc.vpc.id
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.this.id
 
-  route {
-    cidr_block     = var.igw_cidr
-    nat_gateway_id = aws_nat_gateway.ngw.id
-
-  }
   tags = local.tags
 }
 
-resource "aws_route_table_association" "rta_priv1" {
-  route_table_id = aws_route_table.private_route_table.id
-  subnet_id      = aws_subnet.private_subnet1.id
-
+resource "aws_route" "private_nat_gateway" {
+  route_table_id         = aws_route_table.private.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_nat_gateway.ngw.id
 }
-
-resource "aws_route_table_association" "rta_priv2" {
-  route_table_id = aws_route_table.private_route_table.id
-  subnet_id      = aws_subnet.private_subnet2.id
-
+resource "aws_route_table_association" "private_assoc" {
+  count          = length(aws_subnet.private_subnet)
+  route_table_id = aws_route_table.private.id
+  subnet_id      = aws_subnet.private_subnet[count.index].id
 }

@@ -1,9 +1,9 @@
 terraform {
   backend "s3" {
-    bucket  = ""
-    key     = ""
-    region  = "eu-west-2"
-    encrypt = true
-    # use_lockfile = true
+    bucket       = "eks-terraform-project-sh-bucket"
+    key          = "eks-project/terraform.tfstate"
+    region       = "eu-west-1"
+    encrypt      = true
+    use_lockfile = true
   }
 }

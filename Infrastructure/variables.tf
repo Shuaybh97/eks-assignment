@@ -3,62 +3,8 @@ variable "vpc_cidr" {
 
 }
 
-variable "public_subnet1_cidr" {
-  type = string
 
-}
-
-variable "public_subnet1_az" {
-  type = string
-
-}
-
-variable "map_public_ip_on_launch" {
-  type = bool
-
-}
-
-variable "public_subnet2_cidr" {
-  type = string
-
-}
-
-variable "public_subnet2_az" {
-  type = string
-}
-
-
-variable "private_subnet1_cidr" {
-  type = string
-
-}
-
-variable "private_subnet1_az" {
-  type = string
-
-}
-
-variable "private_subnet2_cidr" {
-  type = string
-
-}
-
-variable "private_subnet2_az" {
-  type = string
-}
-
-variable "igw_cidr" {
-  type = string
-
-}
-
-variable "eip_domain" {
-  type = string
-
-}
-
-
-variable "eks_cluster_sg_name" {
+variable "eks_cluster_version" {
   type = string
 }
 
@@ -116,10 +62,6 @@ variable "tcp_protocol" {
 
 }
 
-variable "sg_rule_description" {
-  type = string
-}
-
 variable "eks_cluster_name" {
   type = string
 
@@ -136,8 +78,7 @@ variable "eks_node_name" {
 }
 
 variable "instance_types" {
-  type = list(string)
-
+  type = string
 }
 
 variable "disk_size" {
