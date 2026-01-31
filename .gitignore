@@ -1,9 +1,0 @@
-.sass-cache/
-*.tfstate
-*.tfstate.*
-.terraform.tfstate.lock.info
-.terraformrc
-terraform.rc
-.terraform/
-.DS_Store
-.env
