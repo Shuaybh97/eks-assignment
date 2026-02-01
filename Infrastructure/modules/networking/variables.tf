@@ -3,5 +3,5 @@ variable "vpc_cidr" {
 }
 
 variable "global_tags" {
-  type = object(string)
+  type = map(string)
 } 

@@ -6,7 +6,7 @@ variable "eks_cluster_name" {
   type = string
 }
 
-variable "instance_types" {
+variable "node_instance_type" {
   type = string
 }
 
@@ -20,4 +20,8 @@ variable "eks_cluster_version" {
 
 variable "eks_cluster_role_arn" {
   type = string
+}
+
+variable "global_tags" {
+  type = map(string)
 }

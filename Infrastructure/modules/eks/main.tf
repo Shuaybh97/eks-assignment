@@ -20,5 +20,6 @@ resource "aws_eks_node_group" "eks_nodes" {
     max_size     = 3
   }
 
-  instance_types = [var.instance_types]
+  instance_types = [var.node_instance_type]
 }
+

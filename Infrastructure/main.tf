@@ -1,6 +1,6 @@
 module "networking" {
   source      = "./modules/networking"
-  vpc_cidr    = "10.0.0.0/16"
+  vpc_cidr    = var.vpc_cidr
   global_tags = local.global_tags
 }
 
@@ -23,11 +23,12 @@ module "eks_nodes_role" {
 module "eks" {
   source               = "./modules/eks"
   eks_cluster_name     = var.eks_cluster_name
-  eks_cluster_role_arn = module.eks_cluster_role.arn
-  node_group_role_arn  = module.eks_nodes_role.arn
+  eks_cluster_role_arn = module.eks_cluster_role.role_arn
+  node_group_role_arn  = module.eks_nodes_role.role_arn
   eks_cluster_version  = var.eks_cluster_version
-  instance_types       = var.instance_types
+  node_instance_type   = var.node_instance_type
   private_subnet_ids   = module.networking.private_subnet_ids
+  global_tags          = local.global_tags
 }
 
 # module "irsa" {

@@ -14,5 +14,5 @@ resource "aws_iam_role" "this" {
 resource "aws_iam_role_policy_attachment" "this" {
   for_each   = toset(var.managed_policies)
   role       = aws_iam_role.this.name
-  policy_arn = "arn:aws:iam:aws:policy/${each.value}"
+  policy_arn = "arn:aws:iam::aws:policy/${each.value}"
 }
