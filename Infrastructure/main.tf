@@ -1,135 +1,120 @@
 module "networking" {
-  source      = "./terraform-modules/networking"
-  vpc_cidr    = var.vpc_cidr
+  source      = "./modules/networking"
   global_tags = local.global_tags
+  vpc_config  = var.vpc_config
+}
+
+module "ecr" {
+  source          = "./modules/ecr"
+  repository_name = "${local.name_prefix}-ecr"
+  global_tags     = local.global_tags
 }
 
 module "eks_cluster_role" {
-  source           = "./terraform-modules/iam"
-  role_name        = "eks-project-cluster-role"
+  source           = "./modules/iam"
+  role_name        = "${local.name_prefix}-cluster-role"
   service_name     = "eks.amazonaws.com"
   managed_policies = ["AmazonEKSClusterPolicy", "AmazonEKSVPCResourceController"]
   global_tags      = local.global_tags
 }
 
 module "eks_nodes_role" {
-  source           = "./terraform-modules/iam"
-  role_name        = "eks-project-nodes-role"
+  source           = "./modules/iam"
+  role_name        = "${local.name_prefix}-nodes-role"
   service_name     = "ec2.amazonaws.com"
   managed_policies = ["AmazonEKSWorkerNodePolicy", "AmazonEKS_CNI_Policy", "AmazonEC2ContainerRegistryReadOnly"]
   global_tags      = local.global_tags
 }
 
 module "eks" {
-  source               = "./terraform-modules/eks"
-  eks_cluster_name     = var.eks_cluster_name
+  source               = "./modules/eks"
+  eks_cluster_name     = "${local.name_prefix}-cluster"
   eks_cluster_role_arn = module.eks_cluster_role.role_arn
   node_group_role_arn  = module.eks_nodes_role.role_arn
   eks_cluster_version  = var.eks_cluster_version
-  node_instance_type   = var.node_instance_type
+  instance_types       = var.instance_types
   private_subnet_ids   = module.networking.private_subnet_ids
-  global_tags          = local.global_tags
+  vpc_id               = module.networking.vpc_id
+  load_balancer_sg_id  = module.networking.load_balancer_sg_id
 }
 
-# module "irsa" {
-#   source                        = "./modules/irsa"
-#   depends_on                    = [module.eks]
-#   cluster_name                  = var.eks_cluster_name
-#   client_id_list                = var.client_id_list
-#   cert_manager_role_name        = var.cert_manager_role_name
-#   attach_cert_manager_policy    = var.attach_cert_manager_policy
-#   cert_manager_hosted_zone_arns = var.cert_manager_hosted_zone_arns
-#   cert_manager_namespace        = var.cert_manager_namespace
-#   external_dns_role_name        = var.external_dns_role_name
-#   attach_external_dns_policy    = var.attach_external_dns_policy
-#   external_dns_hosted_zone_arns = var.external_dns_hosted_zone_arns
-#   external_dns_namespace        = var.external_dns_namespace
-#
-# }
+resource "aws_iam_openid_connect_provider" "eks_oidc" {
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = ["9e99a48a9960b14926bb7f3b02e22da2b0ab7280"]
+  url             = module.eks.oidc_issuer_url
+  tags            = local.global_tags
+}
 
+module "alb_controller_role" {
+  source = "./modules/iam"
 
-resource "helm_release" "ingress_nginx" {
-  name             = "ingress-nginx"
-  repository       = "https://kubernetes.github.io/ingress-nginx"
-  chart            = "ingress-nginx"
-  namespace        = "ingress-nginx"
+  role_name                  = "${local.name_prefix}-alb-controller-role"
+  use_irsa                   = true
+  oidc_provider_arn          = aws_iam_openid_connect_provider.eks_oidc.arn
+  oidc_provider_url          = module.eks.oidc_provider_url
+  kubernetes_namespace       = var.alb_controller_namespace
+  kubernetes_service_account = var.alb_controller_service_account
+  managed_policies           = []
+  global_tags                = local.global_tags
+
+  create_policy      = true
+  policy_name        = "${local.name_prefix}-alb-controller-policy"
+  policy_description = "IAM policy for AWS Load Balancer Controller"
+  policy_statements = [
+    {
+      Effect = "Allow"
+      Action = [
+        "iam:CreateServiceLinkedRole",
+        "ec2:DescribeAccountAttributes",
+        "ec2:DescribeAddresses",
+        "ec2:DescribeAvailabilityZones",
+        "ec2:DescribeInternetGateways",
+        "ec2:DescribeVpcs",
+        "ec2:DescribeVpcPeeringConnections",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeInstances",
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:DescribeTags",
+        "ec2:GetCoipPoolUsage",
+        "ec2:DescribeCoipPools",
+        "ec2:AuthorizeSecurityGroupIngress",
+        "ec2:RevokeSecurityGroupIngress",
+        "ec2:CreateSecurityGroup",
+        "ec2:DeleteSecurityGroup",
+        "elasticloadbalancing:*",
+        "cognito-idp:DescribeUserPoolClient",
+        "acm:ListCertificates",
+        "acm:DescribeCertificate",
+        "iam:ListServerCertificates",
+        "iam:GetServerCertificate",
+      ]
+      Resource = ["*"]
+    },
+    {
+      Effect = "Allow"
+      Action = [
+        "ec2:CreateTags",
+        "ec2:DeleteTags"
+      ]
+      Resource = ["arn:aws:ec2:*:*:security-group/*"]
+    }
+  ]
+}
+
+resource "helm_release" "traefik" {
+  name             = "traefik"
+  repository       = "https://traefik.github.io/charts"
+  chart            = "traefik"
+  namespace        = var.traefik_namespace
   create_namespace = true
+  version          = "39.0.5"
 
-  set {
-    name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-type"
-    value = "nlb"
-  }
+  values = [
+    file("${path.module}/helm-values/traefik.yaml")
+  ]
 
-  depends_on = [module.eks]
+  depends_on = [
+    module.eks
+  ]
 }
-
-resource "helm_release" "cert_manager" {
-  name             = "cert-manager"
-  repository       = "https://charts.jetstack.io"
-  chart            = "cert-manager"
-  namespace        = "cert-manager"
-  create_namespace = true
-
-  set {
-    name  = "installCRDs"
-    value = "true"
-  }
-
-  depends_on = [module.eks]
-}
-
-resource "helm_release" "external_dns" {
-  name             = "external-dns"
-  repository       = "https://kubernetes-sigs.github.io/external-dns/"
-  chart            = "external-dns"
-  namespace        = "external-dns"
-  create_namespace = true
-
-  set {
-    name  = "provider"
-    value = "aws"
-  }
-
-  set {
-    name  = "policy"
-    value = "upsert-only"
-  }
-
-  depends_on = [module.eks]
-}
-
-resource "helm_release" "kube_prometheus_stack" {
-  name             = "kube-prometheus-stack"
-  repository       = "https://prometheus-community.github.io/helm-charts"
-  chart            = "kube-prometheus-stack"
-  namespace        = "monitoring"
-  create_namespace = true
-
-  set {
-    name  = "grafana.adminPassword"
-    value = "admin"
-  }
-
-  depends_on = [module.eks]
-}
-
-resource "helm_release" "argocd" {
-  name             = "argocd"
-  repository       = "https://argoproj.github.io/argo-helm"
-  chart            = "argo-cd"
-  namespace        = "argocd"
-  create_namespace = true
-
-  set {
-    name  = "server.service.type"
-    value = "LoadBalancer"
-  }
-
-  set {
-    name  = "server.extraArgs[0]"
-    value = "--insecure"
-  }
-
-  depends_on = [module.eks]
-}
-
