@@ -35,7 +35,7 @@ module "eks" {
   instance_types       = var.instance_types
   private_subnet_ids   = module.networking.private_subnet_ids
   vpc_id               = module.networking.vpc_id
-  load_balancer_sg_id  = module.networking.load_balancer_sg_id
+  vpc_cidr             = module.networking.vpc_cidr
 }
 
 resource "aws_iam_openid_connect_provider" "eks_oidc" {
@@ -43,63 +43,6 @@ resource "aws_iam_openid_connect_provider" "eks_oidc" {
   thumbprint_list = ["9e99a48a9960b14926bb7f3b02e22da2b0ab7280"]
   url             = module.eks.oidc_issuer_url
   tags            = local.global_tags
-}
-
-module "alb_controller_role" {
-  source = "./modules/iam"
-
-  role_name                  = "${local.name_prefix}-alb-controller-role"
-  use_irsa                   = true
-  oidc_provider_arn          = aws_iam_openid_connect_provider.eks_oidc.arn
-  oidc_provider_url          = module.eks.oidc_provider_url
-  kubernetes_namespace       = var.alb_controller_namespace
-  kubernetes_service_account = var.alb_controller_service_account
-  managed_policies           = []
-  global_tags                = local.global_tags
-
-  create_policy      = true
-  policy_name        = "${local.name_prefix}-alb-controller-policy"
-  policy_description = "IAM policy for AWS Load Balancer Controller"
-  policy_statements = [
-    {
-      Effect = "Allow"
-      Action = [
-        "iam:CreateServiceLinkedRole",
-        "ec2:DescribeAccountAttributes",
-        "ec2:DescribeAddresses",
-        "ec2:DescribeAvailabilityZones",
-        "ec2:DescribeInternetGateways",
-        "ec2:DescribeVpcs",
-        "ec2:DescribeVpcPeeringConnections",
-        "ec2:DescribeSubnets",
-        "ec2:DescribeSecurityGroups",
-        "ec2:DescribeInstances",
-        "ec2:DescribeNetworkInterfaces",
-        "ec2:DescribeTags",
-        "ec2:GetCoipPoolUsage",
-        "ec2:DescribeCoipPools",
-        "ec2:AuthorizeSecurityGroupIngress",
-        "ec2:RevokeSecurityGroupIngress",
-        "ec2:CreateSecurityGroup",
-        "ec2:DeleteSecurityGroup",
-        "elasticloadbalancing:*",
-        "cognito-idp:DescribeUserPoolClient",
-        "acm:ListCertificates",
-        "acm:DescribeCertificate",
-        "iam:ListServerCertificates",
-        "iam:GetServerCertificate",
-      ]
-      Resource = ["*"]
-    },
-    {
-      Effect = "Allow"
-      Action = [
-        "ec2:CreateTags",
-        "ec2:DeleteTags"
-      ]
-      Resource = ["arn:aws:ec2:*:*:security-group/*"]
-    }
-  ]
 }
 
 resource "helm_release" "traefik" {
@@ -111,10 +54,66 @@ resource "helm_release" "traefik" {
   version          = "39.0.5"
 
   values = [
-    file("${path.module}/helm-values/traefik.yaml")
+    templatefile("${path.module}/helm-values/traefik.yaml", {
+      public_subnets = join(",", module.networking.public_subnet_ids)
+    })
   ]
 
   depends_on = [
     module.eks
   ]
 }
+
+resource "helm_release" "cert_manager" {
+  name             = "cert-manager"
+  repository       = "https://charts.jetstack.io"
+  chart            = "cert-manager"
+  namespace        = "cert-manager"
+  create_namespace = true
+  version          = "v1.15.0"
+
+  values = [
+    file("${path.module}/helm-values/cert-manager.yaml")
+  ]
+
+  depends_on = [
+    module.eks
+  ]
+}
+
+
+
+resource "helm_release" "external_dns" {
+  name             = "external-dns"
+  repository       = "https://kubernetes-sigs.github.io/external-dns/"
+  chart            = "external-dns"
+  namespace        = "external-dns"
+  create_namespace = true
+  version          = "v1.21.1"
+
+  values = [
+    file("${path.module}/helm-values/external-dns.yaml")
+  ]
+
+  depends_on = [
+    module.eks
+  ]
+}
+
+resource "helm_release" "argocd" {
+  name             = "argocd"
+  repository       = "https://argoproj.github.io/argo-helm"
+  chart            = "argo-cd"
+  namespace        = "argocd"
+  create_namespace = true
+  version          = "v9.5.13"
+
+  values = [
+    file("${path.module}/helm-values/argocd.yaml")
+  ]
+
+  depends_on = [
+    module.eks
+  ]
+}
+

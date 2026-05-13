@@ -19,8 +19,3 @@ output "oidc_provider_url" {
   value       = replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")
   description = "OIDC provider URL without https:// prefix"
 }
-
-output "node_security_group_id" {
-  value       = aws_security_group.eks_nodes_sg.id
-  description = "Security group ID for EKS worker nodes"
-}

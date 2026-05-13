@@ -1,0 +1,6 @@
+crds:
+  enabled: true
+
+extraEnv:
+  - name: DISABLE_HTTP01_SELF_CHECK
+    value: "1"

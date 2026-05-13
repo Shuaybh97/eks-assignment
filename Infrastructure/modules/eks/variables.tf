@@ -27,7 +27,7 @@ variable "vpc_id" {
   description = "VPC ID for security groups"
 }
 
-variable "load_balancer_sg_id" {
+variable "vpc_cidr" {
   type        = string
-  description = "Security group ID of the load balancer"
+  description = "VPC CIDR block for security group rules"
 }
