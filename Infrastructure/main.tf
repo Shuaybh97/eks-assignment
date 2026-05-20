@@ -1,3 +1,13 @@
+locals {
+  charts = {
+    traefik = "traefik"
+    cert_manager = "cert-manager"
+    external_dns = "external-dns"
+    kube-prometheus-stack = "kube-prometheus-stack"
+    argocd = "argocd"
+  }
+}
+
 module "networking" {
   source      = "./modules/networking"
   global_tags = local.global_tags
@@ -46,15 +56,15 @@ resource "aws_iam_openid_connect_provider" "eks_oidc" {
 }
 
 resource "helm_release" "traefik" {
-  name             = "traefik"
+  name             = local.charts.traefik
   repository       = "https://traefik.github.io/charts"
-  chart            = "traefik"
-  namespace        = var.traefik_namespace
+  chart            = local.charts.traefik
+  namespace        = local.charts.traefik
   create_namespace = true
   version          = "39.0.5"
 
   values = [
-    templatefile("${path.module}/helm-values/traefik.yaml", {
+    templatefile("${path.module}/helm-values/${local.charts.traefik}.yaml", {
       public_subnets = join(",", module.networking.public_subnet_ids)
     })
   ]
@@ -65,15 +75,15 @@ resource "helm_release" "traefik" {
 }
 
 resource "helm_release" "cert_manager" {
-  name             = "cert-manager"
+  name             = local.charts.cert_manager
   repository       = "https://charts.jetstack.io"
-  chart            = "cert-manager"
-  namespace        = "cert-manager"
+  chart            =  local.charts.cert_manager
+  namespace        = local.charts.cert_manager
   create_namespace = true
   version          = "v1.15.0"
 
   values = [
-    file("${path.module}/helm-values/cert-manager.yaml")
+    file("${path.module}/helm-values/${local.charts.cert_manager}.yaml")
   ]
 
   depends_on = [
@@ -84,15 +94,15 @@ resource "helm_release" "cert_manager" {
 
 
 resource "helm_release" "external_dns" {
-  name             = "external-dns"
+  name             = local.charts.external_dns
   repository       = "https://kubernetes-sigs.github.io/external-dns/"
-  chart            = "external-dns"
-  namespace        = "external-dns"
+  chart            = local.charts.external_dns
+  namespace        = local.charts.external_dns
   create_namespace = true
   version          = "v1.21.1"
 
   values = [
-    file("${path.module}/helm-values/external-dns.yaml")
+    file("${path.module}/helm-values/${local.charts.external_dns}.yaml")
   ]
 
   depends_on = [
@@ -101,19 +111,34 @@ resource "helm_release" "external_dns" {
 }
 
 resource "helm_release" "argocd" {
-  name             = "argocd"
+  name             = local.charts.argocd
   repository       = "https://argoproj.github.io/argo-helm"
   chart            = "argo-cd"
-  namespace        = "argocd"
+  namespace        = local.charts.argocd
   create_namespace = true
   version          = "v9.5.13"
 
   values = [
-    file("${path.module}/helm-values/argocd.yaml")
+    file("${path.module}/helm-values/${local.charts.argocd}.yaml")
   ]
 
   depends_on = [
     module.eks
   ]
 }
+
+resource "helm_release" "kube-prometheus-stack" {
+  name             = local.charts.kube-prometheus-stack
+  repository       = "https://prometheus-community.github.io/helm-charts"
+  chart            = local.charts.kube-prometheus-stack
+  namespace        = local.charts.kube-prometheus-stack
+  create_namespace = true
+  version          = "v85.0.3"
+
+  depends_on = [
+    module.eks
+  ]
+}
+
+
 

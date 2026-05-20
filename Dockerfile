@@ -1,4 +1,3 @@
-# Stage 1: Dependencies
 FROM node:18-alpine AS deps
 
 WORKDIR /app
@@ -6,7 +5,6 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --prefer-offline --no-audit
 
-# Stage 2: Builder
 FROM node:18-alpine AS builder
 
 WORKDIR /app
@@ -17,23 +15,18 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-# Stage 3: Production runtime (minimal)
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Create non-root user
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
-# Copy production dependencies only
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 
-# Copy built application
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --chown=nextjs:nodejs package.json next.config.js ./
 
-# Prune to production only (removes devDependencies)
 RUN npm prune --production
 
 USER nextjs
