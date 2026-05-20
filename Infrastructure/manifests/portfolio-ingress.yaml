@@ -31,5 +31,4 @@ spec:
   - hosts:
     - shuaib.dev
     - www.shuaib.dev
-    - argocd.shuaib.dev
     secretName: ingress-tls-secret
