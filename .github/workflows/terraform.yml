@@ -77,18 +77,44 @@ jobs:
         working-directory: Infrastructure
         run: terraform validate
 
-      - name: Terraform Plan
-        id: plan
+      - name: Terraform Plan (core infrastructure)
+        id: plan-core
         working-directory: Infrastructure
         run: |
           terraform plan \
             -var-file="environments/${{ env.ENVIRONMENT }}.tfvars" \
-            -out=tfplan \
+            -target=module.networking \
+            -target=module.ecr \
+            -target=module.eks_cluster_role \
+            -target=module.eks_nodes_role \
+            -target=module.eks \
+            -target=aws_iam_openid_connect_provider.eks_oidc \
+            -target=module.portfolio_ecr_role \
             -no-color
         continue-on-error: true
 
-      - name: Fail on plan error
-        if: steps.plan.outcome == 'failure'
+      - name: Fail on core plan error
+        if: steps.plan-core.outcome == 'failure'
+        run: exit 1
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name eks-project-eu-west-1-sandbox-cluster \
+            --region ${{ vars.AWS_REGION }}
+        continue-on-error: true
+
+      - name: Terraform Plan (helm releases & remaining resources)
+        id: plan-full
+        working-directory: Infrastructure
+        run: |
+          terraform plan \
+            -var-file="environments/${{ env.ENVIRONMENT }}.tfvars" \
+            -no-color
+        continue-on-error: true
+
+      - name: Fail on full plan error
+        if: steps.plan-full.outcome == 'failure'
         run: exit 1
 
   apply:
