@@ -17,7 +17,7 @@ resource "aws_security_group_rule" "allow_nlb_http" {
   from_port         = 30000
   to_port           = 32767
   protocol          = "tcp"
-  cidr_blocks       = ["10.0.0.0/16", "77.99.247.116/32"]
+  cidr_blocks       = ["10.0.0.0/16", "77.99.247.116/32", "94.119.32.15/32"]
   security_group_id = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
 }
 
