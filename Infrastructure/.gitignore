@@ -3,5 +3,7 @@ terraform.tfstate.backup
 .terraform/
 .terraform.lock.hcl
 *.tfvars
+!environments/*.tfvars
+!bootstrap/environments/*.tfvars
 .DS_Store
-environments/
+helm-charts/
