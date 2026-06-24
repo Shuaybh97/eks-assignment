@@ -91,14 +91,6 @@ jobs:
         if: steps.plan.outcome == 'failure'
         run: exit 1
 
-      - name: Upload plan artifact
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfplan-${{ env.ENVIRONMENT }}-${{ github.sha }}
-          path: Infrastructure/tfplan
-          retention-days: 1
-
   apply:
     name: Apply (sandbox)
     runs-on: ubuntu-latest
@@ -129,12 +121,25 @@ jobs:
             -backend-config="key=${{ env.ENVIRONMENT }}/terraform.tfstate" \
             -backend-config="region=${{ vars.AWS_REGION }}"
 
-      - name: Download plan artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan-${{ env.ENVIRONMENT }}-${{ github.sha }}
-          path: Infrastructure
-
-      - name: Terraform Apply
+      - name: Terraform Apply (core infrastructure)
         working-directory: Infrastructure
-        run: terraform apply -auto-approve tfplan
+        run: |
+          terraform apply -auto-approve \
+            -var-file="environments/${{ env.ENVIRONMENT }}.tfvars" \
+            -target=module.networking \
+            -target=module.ecr \
+            -target=module.eks_cluster_role \
+            -target=module.eks_nodes_role \
+            -target=module.eks \
+            -target=aws_iam_openid_connect_provider.eks_oidc \
+            -target=module.portfolio_ecr_role
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name eks-project-eu-west-1-sandbox-cluster \
+            --region ${{ vars.AWS_REGION }}
+
+      - name: Terraform Apply (helm releases & remaining resources)
+        working-directory: Infrastructure
+        run: terraform apply -auto-approve -var-file="environments/${{ env.ENVIRONMENT }}.tfvars"

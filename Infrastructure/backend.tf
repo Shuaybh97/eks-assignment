@@ -4,5 +4,6 @@ terraform {
   # local development. Requires Terraform >= 1.10 for S3 native state locking.
   backend "s3" {
     use_lockfile = true
+    
   }
 }
