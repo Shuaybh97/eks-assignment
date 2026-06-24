@@ -1,10 +1,10 @@
 locals {
   charts = {
-    traefik = "traefik"
-    cert_manager = "cert-manager"
-    external_dns = "external-dns"
+    traefik               = "traefik"
+    cert_manager          = "cert-manager"
+    external_dns          = "external-dns"
     kube-prometheus-stack = "kube-prometheus-stack"
-    argocd = "argocd"
+    argocd                = "argocd"
   }
 }
 
@@ -77,7 +77,7 @@ resource "helm_release" "traefik" {
 resource "helm_release" "cert_manager" {
   name             = local.charts.cert_manager
   repository       = "https://charts.jetstack.io"
-  chart            =  local.charts.cert_manager
+  chart            = local.charts.cert_manager
   namespace        = local.charts.cert_manager
   create_namespace = true
   version          = "v1.15.0"
