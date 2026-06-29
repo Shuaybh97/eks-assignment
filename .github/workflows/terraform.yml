@@ -44,8 +44,8 @@ jobs:
           framework: terraform
           soft_fail: true
 
-  plan:
-    name: Plan (sandbox)
+  plan-core:
+    name: Plan Core Infrastructure
     runs-on: ubuntu-latest
     environment: sandbox
     needs: lint-and-scan
@@ -77,8 +77,8 @@ jobs:
         working-directory: Infrastructure
         run: terraform validate
 
-      - name: Terraform Plan (core infrastructure)
-        id: plan-core
+      - name: Terraform Plan
+        id: plan
         working-directory: Infrastructure
         run: |
           terraform plan \
@@ -93,28 +93,15 @@ jobs:
             -no-color
         continue-on-error: true
 
-      - name: Fail on core plan error
-        if: steps.plan-core.outcome == 'failure'
+      - name: Fail on plan error
+        if: steps.plan.outcome == 'failure'
         run: exit 1
 
-      - name: Terraform Plan (helm releases & remaining resources)
-        id: plan-full
-        working-directory: Infrastructure
-        run: |
-          terraform plan \
-            -var-file="environments/${{ env.ENVIRONMENT }}.tfvars" \
-            -no-color
-        continue-on-error: true
-
-      - name: Fail on full plan error
-        if: steps.plan-full.outcome == 'failure'
-        run: exit 1
-
-  apply:
-    name: Apply (sandbox)
+  apply-core:
+    name: Apply Core Infrastructure
     runs-on: ubuntu-latest
     environment: sandbox
-    needs: plan
+    needs: plan-core
     if: github.event_name != 'pull_request'
 
     steps:
@@ -140,7 +127,7 @@ jobs:
             -backend-config="key=${{ env.ENVIRONMENT }}/terraform.tfstate" \
             -backend-config="region=${{ vars.AWS_REGION }}"
 
-      - name: Terraform Apply (core infrastructure)
+      - name: Terraform Apply
         working-directory: Infrastructure
         run: |
           terraform apply -auto-approve \
@@ -153,6 +140,78 @@ jobs:
             -target=aws_iam_openid_connect_provider.eks_oidc \
             -target=module.portfolio_ecr_role
 
-      - name: Terraform Apply (helm releases & remaining resources)
+  plan-helm-releases:
+    name: Plan Helm Releases
+    runs-on: ubuntu-latest
+    environment: sandbox
+    needs: apply-core
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/github-actions-oidc-${{ env.ENVIRONMENT }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        working-directory: Infrastructure
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=${{ env.ENVIRONMENT }}/terraform.tfstate" \
+            -backend-config="region=${{ vars.AWS_REGION }}"
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: Infrastructure
+        run: |
+          terraform plan \
+            -var-file="environments/${{ env.ENVIRONMENT }}.tfvars" \
+            -no-color
+        continue-on-error: true
+
+      - name: Fail on plan error
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+  apply-helm-releases:
+    name: Apply Helm Releases
+    runs-on: ubuntu-latest
+    environment: sandbox
+    needs: plan-helm-releases
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/github-actions-oidc-${{ env.ENVIRONMENT }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        working-directory: Infrastructure
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=${{ env.ENVIRONMENT }}/terraform.tfstate" \
+            -backend-config="region=${{ vars.AWS_REGION }}"
+
+      - name: Terraform Apply
         working-directory: Infrastructure
         run: terraform apply -auto-approve -var-file="environments/${{ env.ENVIRONMENT }}.tfvars"
