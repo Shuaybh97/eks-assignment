@@ -102,7 +102,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: sandbox
     needs: plan-core
-    if: github.event_name != 'pull_request'
 
     steps:
       - name: Checkout code
@@ -187,7 +186,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: sandbox
     needs: plan-helm-releases
-    if: github.event_name != 'pull_request'
 
     steps:
       - name: Checkout code
