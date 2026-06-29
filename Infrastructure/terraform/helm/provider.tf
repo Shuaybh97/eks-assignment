@@ -1,6 +1,10 @@
 terraform {
   required_version = ">= 1.10.0, < 2.0.0"
 
+  backend "s3" {
+    use_lockfile = true
+  }
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -18,7 +22,7 @@ terraform {
 }
 
 provider "aws" {
-  region = "eu-west-1"
+  region = var.region
 }
 
 provider "kubernetes" {
@@ -33,7 +37,7 @@ provider "kubernetes" {
       "--cluster-name",
       data.aws_eks_cluster.cluster.name,
       "--region",
-      "eu-west-1"
+      var.region
     ]
   }
 }
@@ -51,7 +55,7 @@ provider "helm" {
         "--cluster-name",
         data.aws_eks_cluster.cluster.name,
         "--region",
-        "eu-west-1"
+        var.region
       ]
     }
   }
