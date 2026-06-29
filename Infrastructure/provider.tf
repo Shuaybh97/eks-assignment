@@ -31,7 +31,9 @@ provider "kubernetes" {
       "eks",
       "get-token",
       "--cluster-name",
-      module.eks.cluster_name
+      module.eks.cluster_name,
+      "--region",
+      "eu-west-1"
     ]
   }
 }
@@ -47,7 +49,9 @@ provider "helm" {
         "eks",
         "get-token",
         "--cluster-name",
-        module.eks.cluster_name
+        module.eks.cluster_name,
+        "--region",
+        "eu-west-1"
       ]
     }
   }

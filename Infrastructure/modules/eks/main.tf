@@ -21,6 +21,24 @@ resource "aws_security_group_rule" "allow_nlb_http" {
   security_group_id = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
 }
 
+resource "aws_eks_access_entry" "github_actions" {
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = var.github_actions_role_arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "github_actions_admin" {
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = var.github_actions_role_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.github_actions]
+}
+
 resource "aws_eks_node_group" "eks_nodes" {
   cluster_name    = aws_eks_cluster.this.name
   node_group_name = "default"

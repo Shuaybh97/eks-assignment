@@ -37,15 +37,16 @@ module "eks_nodes_role" {
 }
 
 module "eks" {
-  source               = "./modules/eks"
-  eks_cluster_name     = "${local.name_prefix}-cluster"
-  eks_cluster_role_arn = module.eks_cluster_role.role_arn
-  node_group_role_arn  = module.eks_nodes_role.role_arn
-  eks_cluster_version  = var.eks_cluster_version
-  instance_types       = var.instance_types
-  private_subnet_ids   = module.networking.private_subnet_ids
-  vpc_id               = module.networking.vpc_id
-  vpc_cidr             = module.networking.vpc_cidr
+  source                  = "./modules/eks"
+  eks_cluster_name        = "${local.name_prefix}-cluster"
+  eks_cluster_role_arn    = module.eks_cluster_role.role_arn
+  node_group_role_arn     = module.eks_nodes_role.role_arn
+  eks_cluster_version     = var.eks_cluster_version
+  instance_types          = var.instance_types
+  private_subnet_ids      = module.networking.private_subnet_ids
+  vpc_id                  = module.networking.vpc_id
+  vpc_cidr                = module.networking.vpc_cidr
+  github_actions_role_arn = data.aws_iam_role.github_actions.arn
 }
 
 resource "aws_iam_openid_connect_provider" "eks_oidc" {
