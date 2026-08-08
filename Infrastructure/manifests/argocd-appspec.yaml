@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: portfolio
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/Shuaybh97/eks-assignment
+    targetRevision: master
+    path: Infrastructure/manifests
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+
+  syncPolicy:
+    automated:
+      enabled: true
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+    - ApplyOutOfSyncOnly=true
+
+  
+
+
+
+
