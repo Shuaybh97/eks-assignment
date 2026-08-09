@@ -60,3 +60,16 @@ resource "helm_release" "kube_prometheus_stack" {
   create_namespace = true
   version          = "v85.0.3"
 }
+
+resource "helm_release" "secrets_store_csi_driver_provider_aws" {
+  name             = "secrets-provider-aws"
+  repository       = "https://aws.github.io/secrets-store-csi-driver-provider-aws"
+  chart            = local.charts.secrets-store-csi-driver-provider-aws
+  namespace        = "kube-system"
+  create_namespace = false
+  version          = "0.3.9"
+
+  values = [
+    file("${path.module}/../../kubernetes/helm-values/${local.charts.secrets-store-csi-driver-provider-aws}.yaml")
+  ]
+}

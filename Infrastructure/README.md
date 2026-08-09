@@ -9,7 +9,7 @@ Infrastructure/
   bootstrap-terraform/    One-time AWS prerequisites (S3 state bucket, GitHub OIDC provider, IAM role)
   terraform/
     core/                 EKS cluster, VPC, ECR, IAM roles, IRSA
-    helm/                 Helm releases (Traefik, ArgoCD, Cert-Manager, External DNS, Prometheus)
+    helm/                 Helm releases (Traefik, ArgoCD, Cert-Manager, External DNS, Prometheus, Secrets Store CSI)
     modules/              Reusable Terraform child modules
   kubernetes/
     helm-values/          Helm chart value overrides
