@@ -38,7 +38,7 @@ resource "helm_release" "external_dns" {
     file("${path.module}/../../kubernetes/helm-values/${local.charts.external_dns}.yaml")
   ]
 
-  depends_on = [ helm_release.secrets_store_csi_driver_provider_aws ]
+  depends_on = [helm_release.secrets_store_csi_driver_provider_aws]
 }
 
 resource "helm_release" "argocd" {
