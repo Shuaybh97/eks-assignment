@@ -1,6 +1,0 @@
-global:
-  domain: argocd.shuaib.dev
-
-server:
-  extraArgs:
-    - --insecure

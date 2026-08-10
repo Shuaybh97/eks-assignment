@@ -62,3 +62,32 @@ module "external_dns_role" {
     }
   ]
 }
+
+# IRSA for Cert Manager
+# Cert Manager uses Cloudflare API token from Secrets Manager for DNS01 challenges
+module "cert_manager_role" {
+  source = "./modules/iam"
+
+  role_name                  = "${local.name_prefix}-cert-manager-role"
+  use_irsa                   = true
+  oidc_provider_arn          = aws_iam_openid_connect_provider.eks_oidc.arn
+  oidc_provider_url          = module.eks.oidc_provider_url
+  kubernetes_namespace       = "cert-manager"
+  kubernetes_service_account = "cert-manager"
+  managed_policies           = []
+  global_tags                = local.global_tags
+
+  create_policy      = true
+  policy_name        = "${local.name_prefix}-cert-manager-policy"
+  policy_description = "IAM policy for Cert Manager to access Cloudflare API token from Secrets Manager"
+  policy_statements = [
+    {
+      Effect = "Allow"
+      Action = [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret"
+      ]
+      Resource = ["arn:aws:secretsmanager:*:*:secret:cloudflare-api-token-*"]
+    }
+  ]
+}
