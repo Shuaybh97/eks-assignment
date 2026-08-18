@@ -1,117 +1,117 @@
-# ;name: ArgoCD Deploy
+name: ArgoCD Deploy
 
-# on:
-#   workflow_run:
-#     workflows: ['Build and Push to ECR']
-#     types: [completed]
-#     branches: [main]
-#   workflow_dispatch:
-#     inputs:
-#       image_tag:
-#         description: 'Image tag to deploy (defaults to latest SHA)'
-#         required: false
+on:
+  workflow_run:
+    workflows: ['Build and Push to ECR']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to deploy (defaults to latest SHA)'
+        required: false
 
-# permissions:
-#   id-token: write
-#   contents: write
+permissions:
+  id-token: write
+  contents: write
 
-# jobs:
-#   update-manifest:
-#     name: Update Image Tag & Sync ArgoCD
-#     runs-on: ubuntu-latest
-#     environment: sandbox
-#     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+jobs:
+  update-manifest:
+    name: Update Image Tag & Sync ArgoCD
+    runs-on: ubuntu-latest
+    environment: sandbox
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
-#     steps:
-#       - name: Checkout code
-#         uses: actions/checkout@v4
-#         with:
-#           token: ${{ secrets.GH_DEPLOY_TOKEN }}
-#           ref: main
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_DEPLOY_TOKEN }}
+          ref: main
 
-#       - name: Resolve image tag
-#         id: tag
-#         run: |
-#           if [ -n "${{ inputs.image_tag }}" ]; then
-#             echo "value=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
-#           elif [ -n "${{ github.event.workflow_run.head_sha }}" ]; then
-#             echo "value=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
-#           else
-#             echo "value=${{ github.sha }}" >> "$GITHUB_OUTPUT"
-#           fi
+      - name: Resolve image tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.image_tag }}" ]; then
+            echo "value=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ github.event.workflow_run.head_sha }}" ]; then
+            echo "value=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
 
-#       - name: Configure AWS credentials
-#         uses: aws-actions/configure-aws-credentials@v4
-#         with:
-#           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/github-actions-oidc-sandbox
-#           aws-region: ${{ vars.AWS_REGION }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/github-actions-oidc-sandbox
+          aws-region: ${{ vars.AWS_REGION }}
 
-#       - name: Resolve ECR registry
-#         id: ecr
-#         run: |
-#           REGISTRY=$(aws ecr describe-registry --query 'registryId' --output text).dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
-#           echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
+      - name: Resolve ECR registry
+        id: ecr
+        run: |
+          REGISTRY=$(aws ecr describe-registry --query 'registryId' --output text).dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
+          echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
 
-#       - name: Update image tag in deployment manifest
-#         env:
-#           NEW_IMAGE: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NAME }}:${{ steps.tag.outputs.value }}
-#         run: |
-#           sed -i "s|image: .*eks-project.*|image: ${NEW_IMAGE}|g" \
-#             Infrastructure/manifests/deployment.yaml
+      - name: Update image tag in deployment manifest
+        env:
+          NEW_IMAGE: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NAME }}:${{ steps.tag.outputs.value }}
+        run: |
+          sed -i "s|image: .*eks-project.*|image: ${NEW_IMAGE}|g" \
+            Infrastructure/manifests/deployment.yaml
 
-#       - name: Validate updated manifest
-#         run: |
-#           kubectl apply --dry-run=client -f Infrastructure/manifests/deployment.yaml || true
+      - name: Validate updated manifest
+        run: |
+          kubectl apply --dry-run=client -f Infrastructure/manifests/deployment.yaml || true
 
-#       - name: Commit and push manifest update
-#         run: |
-#           git config user.name  "github-actions[bot]"
-#           git config user.email "github-actions[bot]@users.noreply.github.com"
-#           git add Infrastructure/manifests/deployment.yaml
-#           git diff --cached --quiet || git commit -m "chore: update portfolio image to ${{ steps.tag.outputs.value }} [skip ci]"
-#           git push
+      - name: Commit and push manifest update
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Infrastructure/manifests/deployment.yaml
+          git diff --cached --quiet || git commit -m "chore: update portfolio image to ${{ steps.tag.outputs.value }} [skip ci]"
+          git push
 
-#   argocd-sync:
-#     name: Trigger ArgoCD Sync
-#     runs-on: ubuntu-latest
-#     environment: sandbox
-#     needs: update-manifest
+  argocd-sync:
+    name: Trigger ArgoCD Sync
+    runs-on: ubuntu-latest
+    environment: sandbox
+    needs: update-manifest
 
-#     steps:
-#       - name: Configure AWS credentials
-#         uses: aws-actions/configure-aws-credentials@v4
-#         with:
-#           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/github-actions-oidc-sandbox
-#           aws-region: ${{ vars.AWS_REGION }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/github-actions-oidc-sandbox
+          aws-region: ${{ vars.AWS_REGION }}
 
-#       - name: Get EKS kubeconfig
-#         run: |
-#           aws eks update-kubeconfig \
-#             --name ${{ vars.EKS_CLUSTER_NAME }} \
-#             --region ${{ vars.AWS_REGION }}
+      - name: Get EKS kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ vars.EKS_CLUSTER_NAME }} \
+            --region ${{ vars.AWS_REGION }}
 
-#       - name: Install ArgoCD CLI
-#         run: |
-#           curl -sSL -o /usr/local/bin/argocd \
-#             https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-#           chmod +x /usr/local/bin/argocd
+      - name: Install ArgoCD CLI
+        run: |
+          curl -sSL -o /usr/local/bin/argocd \
+            https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x /usr/local/bin/argocd
 
-#       - name: Login to ArgoCD
-#         run: |
-#           argocd login ${{ vars.ARGOCD_SERVER }} \
-#             --auth-token ${{ secrets.ARGOCD_AUTH_TOKEN }} \
-#             --grpc-web \
-#             --insecure
+      - name: Login to ArgoCD
+        run: |
+          argocd login ${{ vars.ARGOCD_SERVER }} \
+            --auth-token ${{ secrets.ARGOCD_AUTH_TOKEN }} \
+            --grpc-web \
+            --insecure
 
-#       - name: Sync ArgoCD application
-#         run: |
-#           argocd app sync portfolio \
-#             --grpc-web \
-#             --timeout 120
+      - name: Sync ArgoCD application
+        run: |
+          argocd app sync portfolio \
+            --grpc-web \
+            --timeout 120
 
-#       - name: Wait for healthy rollout
-#         run: |
-#           argocd app wait portfolio \
-#             --health \
-#             --timeout 300 \
-#             --grpc-web
+      - name: Wait for healthy rollout
+        run: |
+          argocd app wait portfolio \
+            --health \
+            --timeout 300 \
+            --grpc-web
