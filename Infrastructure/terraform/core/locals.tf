@@ -1,5 +1,3 @@
-data "aws_region" "current" {}
-
 locals {
   global_tags = {
     ManagedBy   = "Terraform"
@@ -8,7 +6,5 @@ locals {
   }
 
   project_name = "eks-project"
-  region       = var.region
-
-  name_prefix = "${local.project_name}-${local.region}-${var.environment}"
+  name_prefix  = "${local.project_name}-${var.region}-${var.environment}"
 }

@@ -18,24 +18,6 @@ variable "instance_types" {
   description = "EC2 instance type for EKS node group"
 }
 
-variable "alb_controller_namespace" {
-  type        = string
-  default     = "kube-system"
-  description = "Kubernetes namespace for AWS Load Balancer Controller"
-}
-
-variable "alb_controller_service_account" {
-  type        = string
-  default     = "aws-load-balancer-controller"
-  description = "Service account name for AWS Load Balancer Controller"
-}
-
-variable "traefik_namespace" {
-  type        = string
-  default     = "traefik"
-  description = "Kubernetes namespace for Traefik ingress controller"
-}
-
 variable "vpc_config" {
   type = object({
     cidr_block              = optional(string, "10.0.0.0/16")
@@ -51,5 +33,5 @@ variable "vpc_config" {
     private_subnet_offset   = optional(number, 10)
     map_public_ip_on_launch = optional(bool, true)
   })
-  description = "VPC configuration map. Subnet CIDRs can be explicitly provided or dynamically generated. Subnet masks determine the size of generated subnets."
+  description = "VPC configuration"
 }

@@ -19,7 +19,7 @@ resource "aws_iam_role" "this" {
         }
       }
     ]
-  }) : jsonencode({
+    }) : jsonencode({
     Version = "2012-10-17"
     Statement = [
       {

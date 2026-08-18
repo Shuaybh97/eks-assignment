@@ -1,0 +1,23 @@
+crds:
+  enabled: true
+
+serviceAccount:
+  create: false
+  name: cert-manager
+
+volumes:
+  - name: secrets-store
+    csi:
+      driver: secrets-store.csi.k8s.io
+      readOnly: true
+      volumeAttributes:
+        secretProviderClass: cloudflare-api-token
+
+volumeMounts:
+  - name: secrets-store
+    mountPath: /mnt/secrets-store
+    readOnly: true
+
+extraEnv:
+  - name: DISABLE_HTTP01_SELF_CHECK
+    value: "1"

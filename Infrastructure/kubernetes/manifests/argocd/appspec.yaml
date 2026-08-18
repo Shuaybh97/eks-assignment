@@ -9,7 +9,7 @@ spec:
   source:
     repoURL: https://github.com/Shuaybh97/eks-assignment
     targetRevision: master
-    path: Infrastructure/manifests
+    path: Infrastructure/kubernetes/manifests
 
   destination:
     server: https://kubernetes.default.svc
@@ -23,9 +23,3 @@ spec:
       allowEmpty: false
     syncOptions:
     - ApplyOutOfSyncOnly=true
-
-  
-
-
-
-

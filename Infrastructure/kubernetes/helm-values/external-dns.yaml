@@ -1,0 +1,26 @@
+provider:
+  name: cloudflare
+
+env:
+  - name: CF_API_TOKEN
+    value: /mnt/secrets-store/api-token
+  
+domainFilters:
+  - shuaib.dev
+
+serviceAccount:
+  create: false
+  name: external-dns
+
+extraVolumes:
+  - name: secrets-store
+    csi:
+      driver: secrets-store.csi.k8s.io
+      readOnly: true
+      volumeAttributes:
+        secretProviderClass: cloudflare-api-token
+
+extraVolumeMounts:
+  - name: secrets-store
+    mountPath: /mnt/secrets-store
+    readOnly: true

@@ -22,6 +22,11 @@ variable "eks_cluster_role_arn" {
   type = string
 }
 
+variable "github_actions_role_arn" {
+  type        = string
+  description = "ARN of the GitHub Actions IAM role to grant EKS cluster admin access"
+}
+
 variable "vpc_id" {
   type        = string
   description = "VPC ID for security groups"

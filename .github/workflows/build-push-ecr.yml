@@ -2,11 +2,11 @@ name: Build and Push to ECR
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
     paths:
       - 'app/**'
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
     paths:
       - 'app/**'
   workflow_dispatch:
@@ -26,14 +26,12 @@ jobs:
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
-      if: github.event_name == 'push'
       with:
         role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/github-actions-oidc-sandbox
         aws-region: ${{ vars.AWS_REGION }}
 
     - name: Login to Amazon ECR
       id: login-ecr
-      if: github.event_name == 'push'
       uses: aws-actions/amazon-ecr-login@v2
 
     - name: Set up Docker Buildx
@@ -44,17 +42,16 @@ jobs:
       with:
         context: .
         file: ./Dockerfile
-        push: ${{ github.event_name == 'push' }}
+        push: true
         tags: |
           ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NAME }}:${{ github.sha }}
-          ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NAME }}:latest
+          ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NAME }}:${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'latest' }}
         cache-from: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NAME }}:buildcache
         cache-to: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NAME }}:buildcache,mode=max
 
     - name: Output image details
-      if: github.event_name == 'push'
       run: |
         echo "Image pushed successfully!"
         echo "Image URI: ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NAME }}:${{ github.sha }}"
-        echo "Latest tag: ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NAME }}:latest"
+        echo "Tag: ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NAME }}:${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'latest' }}"
 
