@@ -123,39 +123,11 @@ jobs:
         working-directory: Infrastructure/terraform/core
         run: terraform apply -auto-approve -var-file="environments/${{ env.ENVIRONMENT }}.tfvars"
 
-  deploy-argocd-app:
-    name: Deploy ArgoCD Application
-    runs-on: ubuntu-latest
-    environment: sandbox
-    needs: apply-core
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/github-actions-oidc-${{ env.ENVIRONMENT }}
-          aws-region: ${{ vars.AWS_REGION }}
-
-      - name: Update kubeconfig
-        run: |
-          aws eks update-kubeconfig \
-            --region ${{ vars.AWS_REGION }} \
-            --name ${{ vars.EKS_CLUSTER_NAME }}
-
-      - name: Apply ArgoCD Application Spec
-        run: kubectl apply -f Infrastructure/kubernetes/manifests/argocd/appspec.yaml
-
-      - name: Wait for ArgoCD to sync
-        run: sleep 30
-
   plan-helm-releases:
     name: Plan Helm Releases
     runs-on: ubuntu-latest
     environment: sandbox
-    needs: deploy-argocd-app
+    needs: apply-core
 
     steps:
       - name: Checkout code

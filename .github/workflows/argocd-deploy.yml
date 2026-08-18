@@ -5,6 +5,10 @@ on:
     workflows: ['Build and Push to ECR']
     types: [completed]
     branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Infrastructure/kubernetes/manifests/**'
   workflow_dispatch:
     inputs:
       image_tag:
@@ -20,7 +24,7 @@ jobs:
     name: Update Image Tag & Sync ArgoCD
     runs-on: ubuntu-latest
     environment: sandbox
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' || github.event_name == 'pull_request' }}
 
     steps:
       - name: Checkout code
@@ -57,17 +61,17 @@ jobs:
           NEW_IMAGE: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NAME }}:${{ steps.tag.outputs.value }}
         run: |
           sed -i "s|image: .*eks-project.*|image: ${NEW_IMAGE}|g" \
-            Infrastructure/manifests/deployment.yaml
+            Infrastructure/kubernetes/manifests/portfolio-app/deployment.yaml
 
       - name: Validate updated manifest
         run: |
-          kubectl apply --dry-run=client -f Infrastructure/manifests/deployment.yaml || true
+          kubectl apply --dry-run=client -f Infrastructure/kubernetes/manifests/portfolio-app/deployment.yaml || true
 
       - name: Commit and push manifest update
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Infrastructure/manifests/deployment.yaml
+          git add Infrastructure/kubernetes/manifests/portfolio-app/deployment.yaml
           git diff --cached --quiet || git commit -m "chore: update portfolio image to ${{ steps.tag.outputs.value }} [skip ci]"
           git push
 
